@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import os
+import base64
 
 # ============================================================
 # CONFIGURAÇÃO DA PÁGINA
@@ -18,7 +19,23 @@ st.set_page_config(
 BASE_URL = "https://app.na-2.action1.com/api/3.0"
 
 # ============================================================
-# ESTILO CSS PERSONALIZADO - TEMA FP TECH SECURITY (DARK & BLUE)
+# TRATAMENTO DE SECRETS (TOLERANTE A FALHAS - LOCAL E NUVEM)
+# ============================================================
+DEFAULT_CLIENT_ID = "api-key-95ae00f6-9d9f-4ab8-8ee4-05894a9af562b851c340-0091-7047-938f-f68bfa89f8ff@action1.com"
+DEFAULT_CLIENT_SECRET = "04a94df83ccf253c45b6769599a2d5b6"
+DEFAULT_SENHA = "Zumotta0"
+
+try:
+    SENHA_CORRETA = st.secrets.get("SENHA_ACESSO", DEFAULT_SENHA)
+    client_id = st.secrets.get("CLIENT_ID", DEFAULT_CLIENT_ID)
+    client_secret = st.secrets.get("CLIENT_SECRET", DEFAULT_CLIENT_SECRET)
+except Exception:
+    SENHA_CORRETA = DEFAULT_SENHA
+    client_id = DEFAULT_CLIENT_ID
+    client_secret = DEFAULT_CLIENT_SECRET
+
+# ============================================================
+# ESTILO CSS PERSONALIZADO - TEMA FP TECH SECURITY
 # ============================================================
 st.markdown("""
 <style>
@@ -27,6 +44,28 @@ st.markdown("""
         color: #e2e8f0;
     }
     
+    /* Moldura estilo Cyber Neon com Borda Circular para a Logo */
+    .logo-frame {
+        display: inline-block;
+        background: #161b22;
+        border: 2px solid #0066ff;
+        border-radius: 50%;
+        padding: 5px;
+        box-shadow: 0 0 15px rgba(0, 102, 255, 0.4);
+        transition: transform 0.3s ease;
+    }
+    .logo-frame:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(0, 102, 255, 0.7);
+    }
+    .logo-img {
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+    }
+
     .card-title {
         font-size: 14px;
         font-weight: 700;
@@ -94,7 +133,7 @@ st.markdown("""
         padding: 20px;
         margin-top: 15px;
     }
-    
+
     [data-testid="stVerticalBlock"] > div[data-testid="stBlock"] {
         border-color: #30363d !important;
         background-color: #0d1117;
@@ -102,29 +141,73 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# LOCALIZAÇÃO DA LOGO FP TECH SECURITY
-# ============================================================
-logo_path = None
-possiveis_nomes = [
-    "logo.png", "logo.jpg", "logo.jpeg",
-    "WhatsApp Image 2026-07-21 at 12.09.06.jpeg",
-    "fptech_logo.png", "fptech.png"
-]
+# Função para converter imagem para Base64
+def get_image_base64(path):
+    if path and os.path.exists(path):
+        with open(path, "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode()
+            ext = path.split(".")[-1].lower()
+            return f"data:image/{ext};base64,{encoded}"
+    return None
 
-for name in possiveis_nomes:
+logo_path = None
+for name in ["logo.jpeg", "logo.png", "logo.jpg"]:
     if os.path.exists(name):
         logo_path = name
         break
 
+logo_b64 = get_image_base64(logo_path)
+
 # ============================================================
-# CABEÇALHO COM A LOGO NO LUGAR DO TEXTO
+# SISTEMA DE AUTENTICAÇÃO COM SENHA
+# ============================================================
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+
+def tela_login():
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        with st.container(border=True):
+            if logo_b64:
+                st.markdown(f'''
+                    <div style="text-align: center;">
+                        <div class="logo-frame">
+                            <img src="{logo_b64}" class="logo-img" alt="Logo FP Tech">
+                        </div>
+                    </div>
+                ''', unsafe_allow_html=True)
+            else:
+                st.markdown("## 🛡️ **FP TECH SECURITY**")
+            
+            st.markdown("<h3 style='text-align: center;'>Acesso Restrito</h3>", unsafe_allow_html=True)
+            st.caption("Painel Executivo de Saúde & Segurança - Zumotta Contábil")
+            
+            senha_digitada = st.text_input("Digite a Senha de Acesso:", type="password", key="pwd_input")
+            
+            if st.button("🔓 Entrar no Painel", use_container_width=True):
+                if senha_digitada == SENHA_CORRETA:
+                    st.session_state["autenticado"] = True
+                    st.rerun()
+                else:
+                    st.error("Senha incorreta. Tente novamente.")
+
+if not st.session_state["autenticado"]:
+    tela_login()
+    st.stop()
+
+# ============================================================
+# CABEÇALHO DO DASHBOARD (APÓS LOGIN)
 # ============================================================
 c_header_logo, c_header_title = st.columns([1, 5])
 
 with c_header_logo:
-    if logo_path:
-        st.image(logo_path, width=130)
+    if logo_b64:
+        st.markdown(f'''
+            <div class="logo-frame">
+                <img src="{logo_b64}" class="logo-img" alt="Logo FP Tech">
+            </div>
+        ''', unsafe_allow_html=True)
     else:
         st.markdown("## 🛡️ FP TECH")
 
@@ -134,85 +217,78 @@ with c_header_title:
 
 st.markdown("---")
 
-# ============================================================
-# BARRA LATERAL (CONFIGURAÇÃO & CONEXÃO)
-# ============================================================
-st.sidebar.header("⚙️ Conexão Action1")
-
+# Menu lateral
+st.sidebar.header("🛡️ FP TECH SECURITY")
 if logo_path:
     st.sidebar.image(logo_path, use_container_width=True)
 
-if "df_data" not in st.session_state:
-    st.session_state["df_data"] = None
+st.sidebar.success("✅ Autenticado com sucesso")
 
-client_id = st.sidebar.text_input("ID do Cliente (Client ID)", value="")
-client_secret = st.sidebar.text_input("Chave Secreta (Client Secret)", type="password", value="")
+if st.sidebar.button("🔒 Sair / Logoff", use_container_width=True):
+    st.session_state["autenticado"] = False
+    st.rerun()
 
-if st.sidebar.button("🔄 Sincronizar Dados", use_container_width=True):
-    if not client_id or not client_secret:
-        st.sidebar.error("Por favor, preencha o Client ID e Client Secret.")
-    else:
-        with st.spinner("Conectando aos servidores FP Tech..."):
-            try:
-                auth = requests.post(
-                    f"{BASE_URL}/oauth2/token",
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
-                    data={"client_id": client_id, "client_secret": client_secret},
-                    timeout=30
-                )
-                if auth.status_code == 200:
-                    token = auth.json()["access_token"]
-                    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+# Cache dos dados da API Action1
+@st.cache_data(ttl=300)
+def carregar_dados_action1(c_id, c_secret):
+    try:
+        auth = requests.post(
+            f"{BASE_URL}/oauth2/token",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"client_id": c_id, "client_secret": c_secret},
+            timeout=30
+        )
+        if auth.status_code == 200:
+            token = auth.json()["access_token"]
+            headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
 
-                    orgs = requests.get(f"{BASE_URL}/organizations", headers=headers, timeout=30).json().get("items", [])
-                    org_id = "905808a0-8537-11f1-b60c-850dadacc8dd"
-                    if orgs:
-                        for o in orgs:
-                            if "ZUMOTTA" in o.get("name", "").upper():
-                                org_id = o.get("id")
-                                break
+            orgs = requests.get(f"{BASE_URL}/organizations", headers=headers, timeout=30).json().get("items", [])
+            org_id = "905808a0-8537-11f1-b60c-850dadacc8dd"
+            if orgs:
+                for o in orgs:
+                    if "ZUMOTTA" in o.get("name", "").upper():
+                        org_id = o.get("id")
+                        break
 
-                    res = requests.get(f"{BASE_URL}/endpoints/managed/{org_id}", headers=headers, timeout=60)
-                    if res.status_code == 200:
-                        items = res.json().get("items", [])
-                        st.session_state["df_data"] = pd.json_normalize(items) if items else pd.DataFrame()
-                        st.sidebar.success("Dados sincronizados!")
-                    else:
-                        st.sidebar.error(f"Erro na API Action1: Status {res.status_code}")
-                else:
-                    st.sidebar.error("Credenciais de acesso incorretas.")
-            except Exception as e:
-                st.sidebar.error(f"Erro de conexão: {e}")
+            res = requests.get(f"{BASE_URL}/endpoints/managed/{org_id}", headers=headers, timeout=60)
+            if res.status_code == 200:
+                items = res.json().get("items", [])
+                return pd.json_normalize(items) if items else pd.DataFrame()
+    except Exception as e:
+        st.error(f"Erro na conexão com Action1: {e}")
+    return None
 
-df_raw = st.session_state["df_data"]
+if st.sidebar.button("🔄 Atualizar Dados Agora", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
+
+df_raw = carregar_dados_action1(client_id, client_secret)
 
 # ============================================================
 # RENDERIZAÇÃO DO DASHBOARD
 # ============================================================
 if df_raw is None or df_raw.empty:
-    st.info("👈 Por favor, informe seu **Client ID** e **Client Secret** no menu lateral e clique em **🔄 Sincronizar Dados** para carregar os relatórios da Zumotta Contábil.")
+    st.warning("⚠️ Não foi possível carregar os dados. Verifique as credenciais da API.")
 else:
     df = df_raw.copy()
 
-    df["Status_Online"] = df["status"].apply(lambda x: "Online" if str(x).lower() == "connected" else "Offline") if "status" in df.columns else "Offline"
+    df["Status_Raw"] = df["status"].apply(lambda x: "Online" if str(x).lower() == "connected" else "Offline") if "status" in df.columns else "Offline"
+    df["Status_Online"] = df["Status_Raw"].apply(lambda x: "🟢 Online" if x == "Online" else "🔴 Offline")
     
     total_endpoints = len(df)
-    online_count = len(df[df["Status_Online"] == "Online"])
+    online_count = len(df[df["Status_Raw"] == "Online"])
     offline_count = total_endpoints - online_count
 
     vulnerabilidades_totais = 1807 if total_endpoints >= 10 else total_endpoints * 180
     missing_updates = 325 if total_endpoints >= 10 else total_endpoints * 32
     installed_software = 259 if total_endpoints >= 10 else total_endpoints * 25
 
-    # ------------------------------------------------------------
-    # SEÇÃO 1: RESUMO GERAL E STATUS DOS DISPOSITIVOS
-    # ------------------------------------------------------------
+    # 1. RESUMO GERAL
     col_left, col_right = st.columns(2)
 
     with col_left:
         with st.container(border=True):
             st.markdown('<div class="card-title">📊 Resumo Geral da Infraestrutura</div>', unsafe_allow_html=True)
-            
             o1, o2 = st.columns(2)
             with o1:
                 st.markdown(f'''
@@ -247,7 +323,6 @@ else:
     with col_right:
         with st.container(border=True):
             st.markdown('<div class="card-title">📈 Atividade & Recência dos Computadores</div>', unsafe_allow_html=True)
-            
             e1, e2 = st.columns(2)
             with e1:
                 st.markdown(f'''
@@ -275,15 +350,12 @@ else:
                     </div>
                 ''', unsafe_allow_html=True)
 
-    # ------------------------------------------------------------
-    # SEÇÃO 2: CONFORMIDADE DE SEGURANÇA E MATRIZ DE RISCO
-    # ------------------------------------------------------------
+    # 2. CONFORMIDADE DE SEGURANÇA
     c_vuln1, c_vuln2 = st.columns([1, 1])
 
     with c_vuln1:
         with st.container(border=True):
             st.markdown('<div class="card-title">🎯 Conformidade de Correção de Vulnerabilidades</div>', unsafe_allow_html=True)
-            
             g_col, sla_col = st.columns([1, 1])
             with g_col:
                 fig_gauge = go.Figure(go.Indicator(
@@ -319,7 +391,6 @@ else:
     with c_vuln2:
         with st.container(border=True):
             st.markdown('<div class="card-title">⏳ Matriz de Prazos de Correção de Vulnerabilidades</div>', unsafe_allow_html=True)
-            
             st.markdown("""
             <table class="heat-table">
                 <thead>
@@ -364,9 +435,7 @@ else:
             </table>
             """, unsafe_allow_html=True)
 
-    # ------------------------------------------------------------
-    # SEÇÃO 3: GERENCIADOR INTERATIVO DE ENDPOINTS
-    # ------------------------------------------------------------
+    # 3. GERENCIADOR INTERATIVO COM STATUS COLORIDO
     with st.container(border=True):
         st.markdown('<div class="card-title">📋 Gerenciador Interativo de Computadores (Zumotta Contábil)</div>', unsafe_allow_html=True)
         st.caption("💡 **Ação Interativa:** Clique na linha de qualquer computador para abrir a análise individual em tempo real.")
@@ -382,7 +451,7 @@ else:
         df_grid = df.copy()
 
         if filtro_status != "Todos":
-            df_grid = df_grid[df_grid["Status_Online"] == filtro_status]
+            df_grid = df_grid[df_grid["Status_Raw"] == filtro_status]
             
         if filtro_so != "Todos" and "os" in df_grid.columns:
             df_grid = df_grid[df_grid["os"] == filtro_so]
@@ -405,19 +474,28 @@ else:
         presentes = [c for c in cols_map.keys() if c in df_grid.columns]
         df_exibir = df_grid[presentes].rename(columns=cols_map)
 
+        # Função para colorir a célula do Status (Verde/Vermelho)
+        def colorir_status(val):
+            val_str = str(val)
+            if "Online" in val_str:
+                return "background-color: rgba(46, 160, 67, 0.35); color: #3fb950; font-weight: bold; border-radius: 4px;"
+            elif "Offline" in val_str:
+                return "background-color: rgba(218, 54, 51, 0.35); color: #f85149; font-weight: bold; border-radius: 4px;"
+            return ""
+
+        df_styled = df_exibir.style.map(colorir_status, subset=["Status"])
+
         event = st.dataframe(
-            df_exibir,
+            df_styled,
             use_container_width=True,
             height=360,
             on_select="rerun",
             selection_mode="single-row",
             column_config={
-                "Status": st.column_config.SelectboxColumn(
+                "Status": st.column_config.TextColumn(
                     "Status",
-                    help="Status da Conexão em Tempo Real",
-                    width="medium",
-                    options=["Online", "Offline"],
-                    required=True,
+                    help="🟢 Online / 🔴 Offline",
+                    width="medium"
                 ),
                 "Endereço IP Local": st.column_config.TextColumn(
                     "Endereço IP Local",
@@ -452,7 +530,7 @@ else:
             """, unsafe_allow_html=True)
             
             d1, d2, d3, d4 = st.columns(4)
-            d1.metric("Status da Conexão", status_pc, delta="Conectado" if status_pc == "Online" else "Desconectado", delta_color="normal" if status_pc == "Online" else "inverse")
+            d1.metric("Status da Conexão", status_pc, delta="Conectado" if "Online" in status_pc else "Desconectado", delta_color="normal" if "Online" in status_pc else "inverse")
             d2.metric("Endereço IP", ip_pc)
             d3.metric("Sistema Operacional", str(so_pc)[:22])
             d4.metric("Última Sincronização", str(visto_pc).replace("_", " "))
